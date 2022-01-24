@@ -68,32 +68,42 @@ interface ICat {
   foo: any,
   bar: object
 }
+type ConfirmCallback = (confirm: boolean) => void;
 
 Vue.component('union-prop', {
   props: {
     cat: Object as PropType<ICat>,
     complexUnion: { type: [User, Number] as PropType<User | number> },
     kittyUser: Object as PropType<ICat & IUser>,
-    mixed: [RegExp, Array],
-    object: [Cat, User],
-    primitive: [String, Number],
-    regex: RegExp,
+    callback: Function as PropType<ConfirmCallback>,
     union: [User, Number] as PropType<User | number>
   },
   data() {
     this.cat;
     this.complexUnion;
     this.kittyUser;
-    this.mixed;
-    this.object;
-    this.primitive;
-    this.regex.compile;
+    this.callback(true);
     this.union;
     return {
       fixedSize: this.union,
     }
   }
 });
+
+Vue.component('union-prop-with-no-casting', {
+  props: {
+    mixed: [RegExp, Array],
+    object: [Cat, User],
+    primitive: [String, Number],
+    regex: RegExp
+  },
+  data() {
+    this.mixed;
+    this.object;
+    this.primitive;
+    this.regex.compile;
+  }
+})
 
 Vue.component('prop-with-primitive-default', {
   props: {
@@ -102,7 +112,7 @@ Vue.component('prop-with-primitive-default', {
       default: () => String(Math.round(Math.random() * 10000000))
     }
   },
-  created() {
+  created(): void {
     this.id;
   }
 });
@@ -141,7 +151,7 @@ Vue.component('component', {
     }
   },
   methods: {
-    plus() {
+    plus(): void {
       this.a++;
       this.aDouble.toFixed();
       this.aPlus = 1;
@@ -158,6 +168,10 @@ Vue.component('component', {
         this.a = val
       },
       deep: true
+    },
+    d: {
+      handler: 'someMethod',
+      immediate: true
     }
   },
   el: "#app",
@@ -241,7 +255,7 @@ Vue.component('component', {
     info.toUpperCase()
     return true
   },
-  ssrPrefetch () {
+  serverPrefetch () {
     return Promise.resolve()
   },
 
@@ -279,6 +293,18 @@ Vue.component('component', {
   name: "Component",
   extends: {} as ComponentOptions<Vue>,
   delimiters: ["${", "}"]
+});
+
+
+Vue.component('custom-prop-type-function', {
+  props: {
+    callback: Function as PropType<(confirm: boolean) => void>,
+  },
+  methods: {
+    confirm(){
+      this.callback(true);
+    }
+  }
 });
 
 Vue.component('provide-inject', {
@@ -323,6 +349,10 @@ Vue.component('component-with-scoped-slot', {
           item: (props: ScopedSlotProps) => [h('span', [props.msg])]
         }
       }),
+      h('child', [
+        // return single VNode (will be normalized to an array)
+        (props: ScopedSlotProps) => h('span', [props.msg])
+      ]),
       h('child', {
         // Passing down all slots from parent
         scopedSlots: this.$scopedSlots
@@ -338,8 +368,12 @@ Vue.component('component-with-scoped-slot', {
   components: {
     child: {
       render (this: Vue, h: CreateElement) {
+        const defaultSlot = this.$scopedSlots['default']!({ msg: 'hi' })
+        defaultSlot && defaultSlot.forEach(vnode => {
+          vnode.tag
+        })
         return h('div', [
-          this.$scopedSlots['default']!({ msg: 'hi' }),
+          defaultSlot,
           this.$scopedSlots['item']!({ msg: 'hello' })
         ])
       }
@@ -448,3 +482,20 @@ Vue.component('functional-component-v-model', {
 
 
 Vue.component('async-es-module-component', () => import('./es-module'))
+
+Vue.component('directive-expression-optional-string', {
+  render(createElement) {
+    return createElement("div", {
+      directives: [
+        {
+          name: 'has-expression',
+          value: 2,
+          expression: '1 + 1',
+        }, {
+          name: 'no-expression',
+          value: 'foo',
+        },
+      ],
+    })
+  }
+});

@@ -61,12 +61,20 @@ declare type ModuleOptions = {
 declare type ASTModifiers = { [key: string]: boolean };
 declare type ASTIfCondition = { exp: ?string; block: ASTElement };
 declare type ASTIfConditions = Array<ASTIfCondition>;
-declare type ASTAttr = { name: string; value: any; start?: number; end?: number };
+
+declare type ASTAttr = {
+  name: string;
+  value: any;
+  dynamic?: boolean;
+  start?: number;
+  end?: number
+};
 
 declare type ASTElementHandler = {
   value: string;
   params?: Array<any>;
   modifiers: ?ASTModifiers;
+  dynamic?: boolean;
   start?: number;
   end?: number;
 };
@@ -80,12 +88,13 @@ declare type ASTDirective = {
   rawName: string;
   value: string;
   arg: ?string;
+  isDynamicArg: boolean;
   modifiers: ?ASTModifiers;
   start?: number;
   end?: number;
 };
 
-declare type ASTNode = ASTElement | ASTText | ASTExpression
+declare type ASTNode = ASTElement | ASTText | ASTExpression;
 
 declare type ASTElement = {
   type: 1;
@@ -109,6 +118,7 @@ declare type ASTElement = {
 
   text?: string;
   attrs?: Array<ASTAttr>;
+  dynamicAttrs?: Array<ASTAttr>;
   props?: Array<ASTAttr>;
   plain?: boolean;
   pre?: true;
@@ -119,6 +129,7 @@ declare type ASTElement = {
   transitionMode?: string | null;
   slotName?: ?string;
   slotTarget?: ?string;
+  slotTargetDynamic?: boolean;
   slotScope?: ?string;
   scopedSlots?: { [name: string]: ASTElement };
 
@@ -167,9 +178,6 @@ declare type ASTElement = {
 
   // weex specific
   appendAsTree?: boolean;
-
-  // 2.6 $slot check
-  has$Slot?: boolean
 };
 
 declare type ASTExpression = {
@@ -182,8 +190,6 @@ declare type ASTExpression = {
   ssrOptimizability?: number;
   start?: number;
   end?: number;
-  // 2.6 $slot check
-  has$Slot?: boolean
 };
 
 declare type ASTText = {
@@ -195,8 +201,6 @@ declare type ASTText = {
   ssrOptimizability?: number;
   start?: number;
   end?: number;
-  // 2.6 $slot check
-  has$Slot?: boolean
 };
 
 // SFC-parser related declarations
