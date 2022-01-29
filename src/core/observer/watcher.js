@@ -206,7 +206,9 @@ export default class Watcher {
    * This only gets called for lazy watchers.
    */
   evaluate () {
+    // 执行初始化的时候传进来的getter参数, 会更新watcher.value
     this.value = this.get()
+    // 缓存本次渲染的value
     this.dirty = false
   }
 

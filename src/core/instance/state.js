@@ -38,24 +38,37 @@ const sharedPropertyDefinition = {
 
 export function proxy (target: Object, sourceKey: string, key: string) {
   sharedPropertyDefinition.get = function proxyGetter () {
+    // 例如 this._props.key
     return this[sourceKey][key]
   }
   sharedPropertyDefinition.set = function proxySetter (val) {
     this[sourceKey][key] = val
   }
+
+  // 将key 代理到vue实例上, 可以通过this.propKey访问
   Object.defineProperty(target, key, sharedPropertyDefinition)
 }
 
 export function initState (vm: Component) {
   vm._watchers = []
   const opts = vm.$options
+  // 1. 响应式处理props
+  // 2. 代理propsKey到Vue实例上,支持this.访问
   if (opts.props) initProps(vm, opts.props)
+  // 1. 判断和props重名
+  // 2. 函数赋值到vue实例上面 
   if (opts.methods) initMethods(vm, opts.methods)
+
+  // 1. data 需进行 props>methods>data的重名判断
+  // 2. 将this._data.dataKeys 代理到 this.dataKeys
   if (opts.data) {
     initData(vm)
   } else {
     observe(vm._data = {}, true /* asRootData */)
   }
+  // 1. computed是通过watcher实现的, 为每一个computedKey 实例化一个watcher, 默认懒执行
+  // 2. 将computedKey代理到vue实例
+  // 3. 缓存是利用 watcher.dirty 属性, 结合 watcher.update watcher.evaluate实现的
   if (opts.computed) initComputed(vm, opts.computed)
   if (opts.watch && opts.watch !== nativeWatch) {
     initWatch(vm, opts.watch)
@@ -98,6 +111,7 @@ function initProps (vm: Component, propsOptions: Object) {
         }
       })
     } else {
+       // props 响应式处理
       defineReactive(props, key, value)
     }
     // static props are already proxied on the component's prototype
@@ -112,9 +126,12 @@ function initProps (vm: Component, propsOptions: Object) {
 
 function initData (vm: Component) {
   let data = vm.$options.data
+
+  // 将data处理为对象
   data = vm._data = typeof data === 'function'
     ? getData(data, vm)
     : data || {}
+  // 警告一波
   if (!isPlainObject(data)) {
     data = {}
     process.env.NODE_ENV !== 'production' && warn(
@@ -123,7 +140,7 @@ function initData (vm: Component) {
       vm
     )
   }
-  // proxy data on instance
+  // 拿之前的props methods, 去重
   const keys = Object.keys(data)
   const props = vm.$options.props
   const methods = vm.$options.methods
@@ -145,10 +162,11 @@ function initData (vm: Component) {
         vm
       )
     } else if (!isReserved(key)) {
+      // 代理 this._data.datakey 到 this.dataKey 
       proxy(vm, `_data`, key)
     }
   }
-  // observe data
+  // 响应式处理
   observe(data, true /* asRootData */)
 }
 
@@ -171,10 +189,12 @@ function initComputed (vm: Component, computed: Object) {
   // $flow-disable-line
   const watchers = vm._computedWatchers = Object.create(null)
   // computed properties are just getters during SSR
+  // 服务端渲染的标志
   const isSSR = isServerRendering()
 
   for (const key in computed) {
     const userDef = computed[key]
+    // computed 可以定义成函数和 getter setter两种形式
     const getter = typeof userDef === 'function' ? userDef : userDef.get
     if (process.env.NODE_ENV !== 'production' && getter == null) {
       warn(
@@ -185,6 +205,7 @@ function initComputed (vm: Component, computed: Object) {
 
     if (!isSSR) {
       // create internal watcher for the computed property.
+      // 为computed属性创建一个内部watcher
       watchers[key] = new Watcher(
         vm,
         getter || noop,
@@ -242,20 +263,33 @@ export function defineComputed (
 }
 
 function createComputedGetter (key) {
+  // 得到当前 key 对应的 watcher
   return function computedGetter () {
+    // 这个小技巧学会他 && 连接返回最后一个真值
+    // https://zh.javascript.info/logical-operators
     const watcher = this._computedWatchers && this._computedWatchers[key]
     if (watcher) {
+      // computed是如何实现缓存的?
+      /**
+       * 每次页面渲染的时候, 执行一次watcher.evaluate ,更新watcher.value
+       * 此时 dirty为false, 本次渲染中不再次执行 evaluate, 这样实现了缓存
+       */
       if (watcher.dirty) {
         watcher.evaluate()
       }
       if (Dep.target) {
         watcher.depend()
       }
+
+      // 缓存的数据直接拿出来
       return watcher.value
     }
   }
 }
 
+/**
+ * 功能同 createComputedGetter 一样
+ */
 function createGetterInvoker(fn) {
   return function computedGetter () {
     return fn.call(this, this)
@@ -264,6 +298,8 @@ function createGetterInvoker(fn) {
 
 function initMethods (vm: Component, methods: Object) {
   const props = vm.$options.props
+
+  // 判断methods是否为函数/ 判断props重名/ 函数重名
   for (const key in methods) {
     if (process.env.NODE_ENV !== 'production') {
       if (typeof methods[key] !== 'function') {
@@ -292,6 +328,8 @@ function initMethods (vm: Component, methods: Object) {
 
 function initWatch (vm: Component, watch: Object) {
   for (const key in watch) {
+    // 这里其实是处理watch的不同配置方法, 官方文档里看
+    // 最终目的就是createWatcher
     const handler = watch[key]
     if (Array.isArray(handler)) {
       for (let i = 0; i < handler.length; i++) {
@@ -309,6 +347,7 @@ function createWatcher (
   handler: any,
   options?: Object
 ) {
+  // 这里还是处理不同配置的handler
   if (isPlainObject(handler)) {
     options = handler
     handler = handler.handler
@@ -316,6 +355,8 @@ function createWatcher (
   if (typeof handler === 'string') {
     handler = vm[handler]
   }
+
+  // 
   return vm.$watch(expOrFn, handler, options)
 }
 
@@ -351,12 +392,19 @@ export function stateMixin (Vue: Class<Component>) {
     options?: Object
   ): Function {
     const vm: Component = this
+    // 处理watcher是对象的情况
     if (isPlainObject(cb)) {
       return createWatcher(vm, expOrFn, cb, options)
     }
+
     options = options || {}
+
+    // 标记这是用户watcher
     options.user = true
+    // 实例化一个watcher
     const watcher = new Watcher(vm, expOrFn, cb, options)
+
+    // 存在 {immediate: true} 配置项 立即执行cb
     if (options.immediate) {
       const info = `callback for immediate watcher "${watcher.expression}"`
       pushTarget()
