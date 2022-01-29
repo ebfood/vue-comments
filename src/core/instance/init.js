@@ -38,11 +38,11 @@ export function initMixin (Vue: Class<Component>) {
       // 子组件性能优化：展开options，避免原型链动态查找
       initInternalComponent(vm, options)
     } else {
-      // 根组件走到这里，进行选项合并
+      // 根组件走到这里，进行选项合并, 将全局配置合并到根组件的局部配置上
       // 组件选项合并发生在三个地方：
       // 1. Vue.component 注册全局组件
       // 2. components: { A, B} 局部注册组件时合并
-      // 3. 这里的跟组件合并
+      // 3. 这里的根组件选项合并
       vm.$options = mergeOptions(
         resolveConstructorOptions(vm.constructor), // 处理构造函数options，合并基类选项
         options || {}, // 参数
@@ -75,7 +75,7 @@ export function initMixin (Vue: Class<Component>) {
     // created 钩子
     callHook(vm, 'created')
 
-    // options中存在el的时候自动执行$mount
+    // options中存在el的时候自动执行$mount, 交给$mount吧
     if (vm.$options.el) {
       vm.$mount(vm.$options.el)
     }
